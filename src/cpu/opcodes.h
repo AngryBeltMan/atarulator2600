@@ -56,7 +56,18 @@ enum opcodes {
     PLA,
     // loads the Processor status from the stack popping the current element from the stack
     PLP,
-
+    // loads the Processor status from the stack popping the current element from the stack
+    JMP,
+    // pushes the current pc register into the stack in little eadian order then sets the pc to the opperand value
+    JSR,
+    // return back from where the opcode JSR was called
+    RTS,
+    // ASL_A and ASL are the same opcode however ASL_A hase only one addressing mode that affects the Acculator register only.
+    // And the ASL has many addressing modes. I split these opcodes because it is more convienient to implement
+    // arithmetic shift left to the accumalator register
+    ASL_A,
+    // arithmetic shift left to a memory address
+    ASL
 };
 
 enum mem_addressing_mode {

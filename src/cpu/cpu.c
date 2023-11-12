@@ -6,7 +6,7 @@
 void parseRom(cpu6507 *cpu) {
     uint8_t opcode;
     while (1) {
-        opcode = cpu->mem_map[CARTRIDGE_MIN + cpu->registers.PC];
+        opcode = cpu->mem_map[cpu->registers.PC];
         // if it encounter the break opcode just exit for right now
         if (opcode == 0x0) return;
         // get information about the opcode like its memory mode the opcode type
@@ -17,7 +17,8 @@ void parseRom(cpu6507 *cpu) {
 
 cpu6507 initCpu() {
     cpu6507 cpu;
-    cpu.registers.PC = 0x0;
+    // this is where the program in rom starts
+    cpu.registers.PC = CARTRIDGE_MIN;
     // 128 is the default value because this is the stack register and the stack register expands downwards
     cpu.registers.SP = 0x80;
     cpu.registers.A = 0x0;

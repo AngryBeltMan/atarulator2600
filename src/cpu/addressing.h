@@ -8,7 +8,7 @@ static inline unsigned short parseOpperand(enum mem_addressing_mode mode,cpu6507
     // the memory address that will be incremented;
     // gets the first opperand because all of the inc opcodes take atleast one byte opperand
     // TODO: Refactor to make it less messy somehow keep increment the cycle count correctly
-    unsigned short address = cpu->mem_map[CARTRIDGE_MIN + (++cpu->registers.PC)];
+    unsigned short address = cpu->mem_map[++cpu->registers.PC];
 
     switch (mode) {
         // add the value in the x register to find the address to increment
@@ -33,7 +33,7 @@ static inline unsigned short parseOpperand(enum mem_addressing_mode mode,cpu6507
             ++cpu->cycles_run;
         case Absolute: {
             // add the second half of the memory
-            address += cpu->mem_map[CARTRIDGE_MIN + (++cpu->registers.PC)] << 8;
+            address += cpu->mem_map[++cpu->registers.PC] << 8;
             break;
         }
 #pragma GCC diagnostic pop
@@ -49,7 +49,7 @@ static inline unsigned short parseOpperand(enum mem_addressing_mode mode,cpu6507
             break;
         }
         case AbsoluteIndirect: {
-            address += cpu->mem_map[CARTRIDGE_MIN + (++cpu->registers.PC)];
+            address += cpu->mem_map[++cpu->registers.PC];
             uint8_t low_byte = cpu->mem_map[address];
             uint8_t high_byte = cpu->mem_map[address + 1];
             address = (high_byte << 8) + low_byte;

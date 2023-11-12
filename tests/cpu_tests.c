@@ -34,8 +34,39 @@ void cpu_run_inc() {
     load_rom_bytes(prgm, 4, &cpu);
     parseRom(&cpu);
     ASSERT(cpu.mem_map[1] == 1)
-    ASSERT(cpu.registers.PC == 4)
+    ASSERT(cpu.registers.PC == CARTRIDGE_MIN + 4)
     ASSERT(cpu.registers.A == 1)
     ASSERT(cpu.registers.PS == 0)
     freeCpu(cpu);
+}
+void cpu_jsr_test() {
+    cpu6507 cpu = initCpu();
+    uint8_t *prgm = malloc(6);
+    // jsr opcode
+    prgm[0] = 0x20;
+
+    // jump to prgm[5]
+    prgm[1] = 0x5;
+    prgm[2] = 0x10;
+
+    // INX
+    prgm[3] = 0xE8;
+
+    // abort the program
+    prgm[4] = 0x0;
+
+    // increment the y register
+    prgm[5] = 0xC8;
+
+    // jump back to prgm[3]
+    prgm[6] = 0x60;
+
+
+    load_rom_bytes(prgm, 7, &cpu);
+    parseRom(&cpu);
+    ASSERT(cpu.registers.PC == CARTRIDGE_MIN + 4)
+    ASSERT(cpu.registers.X == 1)
+    ASSERT(cpu.registers.Y == 1)
+    freeCpu(cpu);
+
 }

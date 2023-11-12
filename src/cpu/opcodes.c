@@ -1,3 +1,5 @@
+#include <assert.h>
+#include "addressing.h"
 #include "opcodes.h"
 #include "inc/dec.h"
 #include "memory_map.h"
@@ -35,7 +37,6 @@
 #define MUT_REG(_opcode, _register, _opp)  \
     case _opcode: \
         cpu->registers._register += _opp; \
-        ++cpu->registers.PC; \
         cpu->cycles_run += 2; \
         set_flag(cpu, cpu->registers._register >> 7, ps_negative); \
         set_flag(cpu, cpu->registers._register == 0, ps_zero); \
@@ -46,7 +47,7 @@ opcode_info parseOpcode(cpu6507 *cpu) {
     unsigned short pc = cpu->registers.PC;
     // cartridge min is the index where the rom starts.
     // code holds the current opcode being parsed
-    uint8_t code = cpu->mem_map[pc + CARTRIDGE_MIN];
+    uint8_t code = cpu->mem_map[pc];
 
     switch (code) {
         INC_CASES()
@@ -72,8 +73,20 @@ opcode_info parseOpcode(cpu6507 *cpu) {
         OPCODE_CASE(0x08, Implied, PHP)
         OPCODE_CASE(0x68, Implied, PLA)
         OPCODE_CASE(0x28, Implied, PLP)
-
+        // no opperation opcode. puts the cpu on idle for two cycles
         OPCODE_CASE(0xEA, Implied, NOP)
+        // jump statements manipulate the program counter register
+        OPCODE_CASE(0x4C, Absolute, JMP)
+        OPCODE_CASE(0x6C, AbsoluteIndirect, JMP)
+        OPCODE_CASE(0x20, Absolute, JSR)
+        OPCODE_CASE(0x60, Implied, RTS)
+
+        // bitwise oppcodes
+        OPCODE_CASE(0x0A, Accumalator, ASL_A)
+        OPCODE_CASE(0x0E, Absolute, ASL)
+        OPCODE_CASE(0x1E, XIndexedAbsolute, ASL)
+        OPCODE_CASE(0x06, ZeroPage, ASL)
+        OPCODE_CASE(0x16, XIndexedZeroPage, ASL)
 
         default: {
             fprintf(stderr, "unknown opcode %i\n", code);
@@ -133,7 +146,44 @@ void executeOpcode(opcode_info opcode, cpu6507 *cpu) {
         case NOP:
             cpu->cycles_run += 2;
             break;
+        case JMP: {
+            unsigned short address = parseOpperand(opcode.mode, cpu);
+            cpu->registers.PC = address;
+            // return early because we want to skip the add one at the end of this function or else it would make it so we would get the opcode after the jump statement and not the current one
+            return;
+        }
+        case JSR:
+            // plus two because once we return back to this pc we would want to be at the next opcode and not at this opcode because it would cause an infinite loop
+            // and adding two will get past the two bytes for the opperand
+            cpu->registers.PC += 2;
+            // push the lower bytes of the PC register onto the stack
+            stack_push(cpu, cpu->registers.PC & 0xFF );
 
+            // next push the upper bytes of the PC register onto the stack
+            stack_push(cpu, (cpu->registers.PC & 0xFF00) >> 8 );
+            // the new position when the cpu will jump to
+            // opperand mode will always be absolute just calling this function to reduce the amount of code
+            cpu->registers.PC -= 2;
+            cpu->registers.PC = parseOpperand(opcode.mode, cpu);
+            // return early because we want to skip the add one at the end of this function or else it would make it so we would get the opcode after the jump statement and not the current one
+            return;
+        case RTS: {
+            // add the upper byte first because we push the upper bytes last and the last item pushed will be returned from a pop
+            // combine the upper and lower bytes to get our original pc value before jumping via the JSR opcode
+            cpu->registers.PC = stack_pop(cpu) << 8;
+            cpu->registers.PC += stack_pop(cpu);
+            cpu->cycles_run += 6;
+            break;
+        }
+        case ASL_A: {
+            cpu->registers.A <<= 1;
+            break;
+        }
+        case ASL: {
+            unsigned short address = parseOpperand(opcode.mode, cpu);
+            cpu->mem_map[address] <<= 1;
+            break;
+        }
         STACK_OPCODES()
         // Simple opcodes that just increment or decremnt certain registers.
         // These opcodes only have 1 addressing mode, do similar things, and take the same amount of cycles making them easily "macro-ized"
