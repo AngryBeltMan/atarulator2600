@@ -87,6 +87,11 @@ opcode_info parseOpcode(cpu6507 *cpu) {
         OPCODE_CASE(0x1E, XIndexedAbsolute, ASL)
         OPCODE_CASE(0x06, ZeroPage, ASL)
         OPCODE_CASE(0x16, XIndexedZeroPage, ASL)
+        OPCODE_CASE(0x4A, Accumalator, LSR_A)
+        OPCODE_CASE(0x4E, Absolute, LSR)
+        OPCODE_CASE(0x5E, XIndexedAbsolute, LSR)
+        OPCODE_CASE(0x46, ZeroPage, LSR)
+        OPCODE_CASE(0x56, XIndexedZeroPage, LSR)
 
         default: {
             fprintf(stderr, "unknown opcode %i\n", code);
@@ -105,16 +110,9 @@ void executeOpcode(opcode_info opcode, cpu6507 *cpu) {
         case DEC:
             opcodeDec(opcode.mode, cpu);
             break;
-        case STA:
-            // A register because this opcode mean STore Accumatlator (register)
-            setMemory(opcode.mode, cpu, cpu->registers.A);
-            break;
-        case STX:
-            setMemory(opcode.mode, cpu, cpu->registers.X);
-            break;
-        case STY:
-            setMemory(opcode.mode, cpu, cpu->registers.Y);
-            break;
+        case STA: setMemory(opcode.mode, cpu, cpu->registers.A); break;
+        case STX: setMemory(opcode.mode, cpu, cpu->registers.X); break;
+        case STY: setMemory(opcode.mode, cpu, cpu->registers.Y); break;
         case LDA:
             // A register because this opcode mean LoaD Accumatlator (register)
             setRegister(opcode.mode, cpu, &cpu->registers.A);
@@ -133,19 +131,12 @@ void executeOpcode(opcode_info opcode, cpu6507 *cpu) {
             set_flag(cpu, cpu->registers.Y >> 7, ps_negative);
             set_flag(cpu, cpu->registers.Y == 0, ps_zero);
             break;
-        case SEC:
-            // 1 for the second argument so that the "comparison" is always true and therefore this flag bit should be garenteed to be set to one
-            set_flag(cpu, 1, ps_carry);
-            break;
-        case SED:
-            set_flag(cpu, 1, ps_decimalMode);
-            break;
-        case SEI:
-            set_flag(cpu, 1, ps_interrupt);
-            break;
-        case NOP:
-            cpu->cycles_run += 2;
-            break;
+        // 1 for the second argument so that the "comparison" is always true and therefore this flag bit should be garenteed to be set to one
+        case SEC: set_flag(cpu, 1, ps_carry); break;
+        case SED: set_flag(cpu, 1, ps_decimalMode); break;
+        case SEI: set_flag(cpu, 1, ps_interrupt); break;
+
+        case NOP: cpu->cycles_run += 2; break;
         case JMP: {
             unsigned short address = parseOpperand(opcode.mode, cpu);
             cpu->registers.PC = address;
@@ -176,12 +167,42 @@ void executeOpcode(opcode_info opcode, cpu6507 *cpu) {
             break;
         }
         case ASL_A: {
+            // store the 7th bit that will be "pushed out" into the carry flag bit
+            set_flag(cpu, cpu->registers.A << 7, ps_carry);
             cpu->registers.A <<= 1;
+            set_flag(cpu, cpu->registers.A == 0, ps_zero);
+            set_flag(cpu, cpu->registers.A << 7, ps_negative);
             break;
         }
         case ASL: {
             unsigned short address = parseOpperand(opcode.mode, cpu);
+            // store the 7th bit that will be "pushed out" into the carry flag bit
+            set_flag(cpu, cpu->mem_map[address] << 7, ps_carry);
             cpu->mem_map[address] <<= 1;
+            set_flag(cpu, cpu->mem_map[address] == 0, ps_zero);
+            set_flag(cpu, cpu->mem_map[address] << 7, ps_negative);
+            break;
+        }
+        case LSR_A: {
+            set_flag(cpu, cpu->registers.A & 0x1, ps_carry);
+            cpu->registers.A >>= 1;
+            set_flag(cpu, cpu->registers.A == 0, ps_zero);
+            set_flag(cpu, 0, ps_negative);
+            break;
+        }
+        case LSR: {
+            unsigned short address = parseOpperand(opcode.mode, cpu);
+            set_flag(cpu, cpu->mem_map[address] & 0x1, ps_carry);
+            cpu->mem_map[address] >>= 1;
+            set_flag(cpu, cpu->mem_map[address] == 0, ps_zero);
+            // will always set the negative flag to zero because even if the 7th bit is on it will just be pushed down
+            // Before left shift:
+            // 10000000
+            // ^ 7th bit (negative bit) on
+            // After right shift:
+            // 01000000
+            // ^ 7th bit (negative bit) off
+            set_flag(cpu, 0, ps_negative);
             break;
         }
         STACK_OPCODES()

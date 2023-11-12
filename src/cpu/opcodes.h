@@ -67,7 +67,11 @@ enum opcodes {
     // arithmetic shift left to the accumalator register
     ASL_A,
     // arithmetic shift left to a memory address
-    ASL
+    ASL,
+    // arithmetic shift right to a memory address
+    LSR_A,
+    LSR
+
 };
 
 enum mem_addressing_mode {
